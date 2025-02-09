@@ -1,0 +1,48 @@
+# Terms of Service
+
+Welcome to Noderunners Relay. By using our service, you agree to these terms.
+
+## 1. Acceptance of Terms
+
+By accessing and using the Noderunners relay service, you agree to be bound by these Terms of Service and all applicable laws and regulations.
+
+## 2. Service Description
+
+Noderunners provides a Nostr relay service that enables users to publish and receive events through the Nostr protocol. Access to the service requires a one-time payment of 10,000 satoshis.
+
+### Technical Specifications
+- **Relay Software**: strfry v1.0.3
+- **Supported NIPs**: 1, 2, 4, 9, 11, 22, 28, 40, 70, 77
+- **Relay URL**: wss://relay.noderunners.network
+
+## 3. User Responsibilities
+
+* You are responsible for all content you publish through the relay
+* You agree not to use the service for any illegal purposes
+* You will not attempt to circumvent the relay's access controls
+* You will not engage in activities that may harm the service's performance
+
+## 4. Content Policy
+
+While we support free speech, certain content is prohibited:
+
+* Illegal content under applicable laws
+* Malware or harmful code
+* Spam or excessive automated posting
+* Content that may harm the relay's operation
+
+## 5. Service Availability
+
+While we strive for high availability, we do not guarantee uninterrupted service. We reserve the right to modify or terminate the service at any time.
+
+## 6. Payment and Access
+
+Access requires a one-time payment of **10,000 satoshis**. This payment is non-refundable. We reserve the right to modify the payment amount or terms with notice.
+
+## 7. Termination
+
+We reserve the right to terminate or suspend access to our service immediately, without prior notice or liability, for any reason whatsoever.
+
+## 8. Changes to Terms
+
+We reserve the right to modify these terms at any time. We will notify users of any changes by updating the date at the top of this page.
