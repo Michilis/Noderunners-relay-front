@@ -12,6 +12,7 @@
   "dependencies": {
     "@nostr-dev-kit/ndk": "^2.5.1",
     "axios": "^1.6.7",
+    "canvas-confetti": "^1.9.2",
     "lucide-react": "^0.344.0",
     "qrcode.react": "^3.1.0",
     "react": "^18.3.1",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@eslint/js": "^9.9.1",
     "@tailwindcss/typography": "^0.5.10",
+    "@types/canvas-confetti": "^1.6.4",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
