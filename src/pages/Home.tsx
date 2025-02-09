@@ -1,11 +1,13 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Flame, Zap, Shield, Globe, Server, Code, Cpu, Copy } from 'lucide-react';
 import { Notification } from '../components/Notification';
 import { useNotification } from '../hooks/useNotification';
 
 export function Home() {
   const { isVisible, message, type, showNotification, hideNotification } = useNotification();
+  const [searchParams] = useSearchParams();
+  const isIframe = searchParams.get('iframe') === '1';
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -26,7 +28,7 @@ export function Home() {
             A high-performance Nostr relay built by Bitcoiners, for Bitcoiners
           </p>
           <Link
-            to="/login"
+            to={isIframe ? '/login?iframe=1' : '/login'}
             className="inline-block px-8 py-4 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold text-lg"
           >
             Get Started

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Copy, CheckCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -11,6 +11,7 @@ import { useNotification } from '../hooks/useNotification';
 
 export function Payment() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, setUser } = useStore();
   const [invoice, setInvoice] = useState<LightningInvoice | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,15 +20,16 @@ export function Payment() {
   const { isVisible, message, type, showNotification, hideNotification } = useNotification();
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const isIframe = searchParams.get('iframe') === '1';
 
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      navigate(isIframe ? '/login?iframe=1' : '/login');
       return;
     }
 
     if (user.isWhitelisted) {
-      navigate('/dashboard');
+      navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
       return;
     }
 
@@ -59,12 +61,12 @@ export function Payment() {
     };
 
     generateInvoice();
-  }, [user, navigate]);
+  }, [user, navigate, isIframe]);
 
   const handlePaymentSuccess = async () => {
     setShowSuccess(true);
     setTimeout(() => {
-      navigate('/thank-you');
+      navigate(isIframe ? '/thank-you?iframe=1' : '/thank-you');
     }, 1500);
     return true;
   };
@@ -147,7 +149,6 @@ export function Payment() {
   return (
     <>
       <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-8 relative">
-        {/* Success Animation Overlay */}
         {showSuccess && (
           <div className="absolute inset-0 bg-gray-900/95 flex items-center justify-center rounded-lg animate-fade-in z-10">
             <div className="text-center animate-success-appear">

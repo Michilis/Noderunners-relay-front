@@ -1,19 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Zap } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 export function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, setUser } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [pubkeyInput, setPubkeyInput] = useState('');
+  const isIframe = searchParams.get('iframe') === '1';
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
     }
-  }, [user, navigate]);
+  }, [user, navigate, isIframe]);
 
   const handleExtensionLogin = async () => {
     setIsLoading(true);
@@ -33,9 +35,8 @@ export function Login() {
         throw new Error('No public key found');
       }
 
-      // Simply store the pubkey and navigate to dashboard
       setUser({ pubkey, isWhitelisted: false });
-      navigate('/dashboard');
+      navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
     } catch (error: any) {
       if (error.message === 'Rejected by user') {
         return;
@@ -62,9 +63,8 @@ export function Login() {
 
     setIsLoading(true);
     try {
-      // Simply store the pubkey and navigate to dashboard
       setUser({ pubkey: pubkeyInput.trim(), isWhitelisted: false });
-      navigate('/dashboard');
+      navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
       alert('Failed to login with the provided public key. Please check the format and try again.');

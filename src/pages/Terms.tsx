@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Shield } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 export function Terms() {
   const [terms, setTerms] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const isIframe = searchParams.get('iframe') === '1';
 
   useEffect(() => {
     const fetchTerms = async () => {
