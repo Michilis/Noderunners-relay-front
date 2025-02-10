@@ -1,7 +1,6 @@
 # Noderunners Relay
 
 A high-performance Nostr relay built by Bitcoiners, for Bitcoiners. This project provides a web interface for managing access to the Noderunners relay service.
-
 ```
 wss://relay.noderunners.network
 ```
