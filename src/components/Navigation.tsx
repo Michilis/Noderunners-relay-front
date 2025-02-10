@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Flame, Menu, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, setUser } = useStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isIframe = searchParams.get('iframe') === '1';
 
   const handleLogout = () => {
     setUser(null);
     setIsMenuOpen(false);
-    navigate('/login', { replace: true }); // Use replace to prevent going back to dashboard
+    const newPath = '/login' + (isIframe ? '?iframe=1' : '');
+    navigate(newPath, { replace: true });
   };
 
   const handleMenuClick = () => {
@@ -23,11 +26,16 @@ export function Navigation() {
     setIsMenuOpen(false);
   };
 
+  // Helper function to add iframe parameter to paths
+  const getPath = (path: string) => {
+    return isIframe ? `${path}?iframe=1` : path;
+  };
+
   return (
     <nav className="border-b border-gray-800 bg-gray-900 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center space-x-2" onClick={handleNavigation}>
+          <Link to={getPath('/')} className="flex items-center space-x-2" onClick={handleNavigation}>
             {import.meta.env.VITE_LOGO_URL ? (
               <img 
                 src={import.meta.env.VITE_LOGO_URL} 
@@ -47,7 +55,7 @@ export function Navigation() {
             {user ? (
               <>
                 <Link
-                  to="/dashboard"
+                  to={getPath('/dashboard')}
                   className="px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
                 >
                   Dashboard
@@ -61,7 +69,7 @@ export function Navigation() {
               </>
             ) : (
               <Link
-                to="/login"
+                to={getPath('/login')}
                 className="px-4 py-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
               >
                 Connect Nostr
@@ -89,7 +97,7 @@ export function Navigation() {
               {user ? (
                 <>
                   <Link
-                    to="/dashboard"
+                    to={getPath('/dashboard')}
                     onClick={handleNavigation}
                     className="px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
                   >
@@ -104,7 +112,7 @@ export function Navigation() {
                 </>
               ) : (
                 <Link
-                  to="/login"
+                  to={getPath('/login')}
                   onClick={handleNavigation}
                   className="px-4 py-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors text-center"
                 >

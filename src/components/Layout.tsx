@@ -1,8 +1,21 @@
 import React from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useSearchParams } from 'react-router-dom';
 import { Navigation } from './Navigation';
 
 export function Layout() {
+  const [searchParams] = useSearchParams();
+  const isIframe = searchParams.get('iframe') === '1';
+
+  if (isIframe) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white">
+        <main className="container mx-auto px-4 py-4 md:py-8">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <Navigation />

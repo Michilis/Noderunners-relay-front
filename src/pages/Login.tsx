@@ -1,19 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Zap } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 export function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, setUser } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [pubkeyInput, setPubkeyInput] = useState('');
+  const isIframe = searchParams.get('iframe') === '1';
+  const urlPubkey = searchParams.get('npub') || searchParams.get('pubkey');
 
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
+    // Handle URL-based login
+    if (urlPubkey && !user) {
+      setUser({ pubkey: urlPubkey, isWhitelisted: false });
+      navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
+      return;
     }
-  }, [user, navigate]);
+
+    // Regular user redirect
+    if (user) {
+      navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
+    }
+  }, [user, navigate, isIframe, urlPubkey, setUser]);
 
   const handleExtensionLogin = async () => {
     setIsLoading(true);
@@ -33,9 +44,8 @@ export function Login() {
         throw new Error('No public key found');
       }
 
-      // Simply store the pubkey and navigate to dashboard
       setUser({ pubkey, isWhitelisted: false });
-      navigate('/dashboard');
+      navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
     } catch (error: any) {
       if (error.message === 'Rejected by user') {
         return;
@@ -62,9 +72,8 @@ export function Login() {
 
     setIsLoading(true);
     try {
-      // Simply store the pubkey and navigate to dashboard
       setUser({ pubkey: pubkeyInput.trim(), isWhitelisted: false });
-      navigate('/dashboard');
+      navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
       alert('Failed to login with the provided public key. Please check the format and try again.');
@@ -72,6 +81,15 @@ export function Login() {
       setIsLoading(false);
     }
   };
+
+  // If we're processing URL-based login, show loading state
+  if (urlPubkey && !user) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-8">

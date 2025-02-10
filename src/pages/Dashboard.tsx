@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Shield, AlertTriangle, Zap, Copy, Activity, Users } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Shield, AlertTriangle, Zap, Copy, Activity, Users, LogOut } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { apiService } from '../services/api';
 import { Notification } from '../components/Notification';
@@ -15,6 +15,8 @@ export function Dashboard() {
   const isDemoMode = import.meta.env.VITE_ENABLE_DEMO === 'true';
   const apiUrl = import.meta.env.VITE_API_URL;
   const { isVisible, message, type, showNotification, hideNotification } = useNotification();
+  const [searchParams] = useSearchParams();
+  const isIframe = searchParams.get('iframe') === '1';
 
   // Check user authentication and fetch status once
   useEffect(() => {
@@ -34,7 +36,6 @@ export function Dashboard() {
             npub: userInfo.npub,
           });
         } catch (error: any) {
-          // If user is not found (404) or any other error, assume not whitelisted
           if (error.response?.status === 404 || error) {
             setUser({
               ...user,
@@ -48,7 +49,7 @@ export function Dashboard() {
     };
 
     checkUserStatus();
-  }, [user?.pubkey, navigate, setUser, isDemoMode]); // Only run on mount and when these dependencies change
+  }, [user?.pubkey, navigate, setUser, isDemoMode]);
 
   // Fetch uptime and active users
   useEffect(() => {
@@ -107,6 +108,11 @@ export function Dashboard() {
       console.error('Failed to copy:', err);
       showNotification('Failed to copy URL', 'error');
     }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    navigate('/login');
   };
 
   if (loading || !user) {
@@ -223,6 +229,19 @@ export function Dashboard() {
             <p className="text-gray-400">Active Users</p>
           </div>
         </div>
+
+        {/* Logout Button (only shown in iframe mode) */}
+        {isIframe && (
+          <div className="flex justify-center">
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <LogOut className="h-5 w-5" />
+              <span>Logout</span>
+            </button>
+          </div>
+        )}
       </div>
       <Notification
         isVisible={isVisible}

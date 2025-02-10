@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Copy, ArrowRight } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import confetti from 'canvas-confetti';
@@ -8,13 +8,15 @@ import { useNotification } from '../hooks/useNotification';
 
 export function ThankYou() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useStore();
   const { isVisible, message, type, showNotification, hideNotification } = useNotification();
   const relayUrl = import.meta.env.VITE_NOSTR_RELAY_URL;
+  const isIframe = searchParams.get('iframe') === '1';
 
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      navigate(isIframe ? '/login?iframe=1' : '/login');
       return;
     }
 
@@ -36,7 +38,6 @@ export function ThankYou() {
 
       const particleCount = 50 * (timeLeft / duration);
       
-      // Since they fall down, start a bit higher than random
       confetti({
         ...defaults,
         particleCount,
@@ -50,7 +51,7 @@ export function ThankYou() {
     }, 250);
 
     return () => clearInterval(interval);
-  }, [user, navigate]);
+  }, [user, navigate, isIframe]);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -114,7 +115,7 @@ export function ThankYou() {
       </div>
 
       <button
-        onClick={() => navigate('/dashboard')}
+        onClick={() => navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard')}
         className="px-8 py-4 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold"
       >
         Go to Dashboard
