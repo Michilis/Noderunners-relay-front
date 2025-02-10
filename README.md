@@ -2,11 +2,14 @@
 
 A high-performance Nostr relay built by Bitcoiners, for Bitcoiners. This project provides a web interface for managing access to the Noderunners relay service.
 
+```
+wss://relay.noderunners.network
+```
+
 ![Noderunners Relay](https://cdn.azzamo.net/5cc03420a18166ef7a20b1e6b7dad240ad7d634824649643c80d74a924062258.png)
 
 ## Features
 
-- 🚀 Lightning-fast relay performance with strfry v1.0.3
 - ⚡ Lightning Network integration for payments
 - 🔒 Secure authentication with Nostr
 - 💻 Modern, responsive web interface
