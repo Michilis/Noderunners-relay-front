@@ -10,12 +10,21 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [pubkeyInput, setPubkeyInput] = useState('');
   const isIframe = searchParams.get('iframe') === '1';
+  const urlPubkey = searchParams.get('npub') || searchParams.get('pubkey');
 
   useEffect(() => {
+    // Handle URL-based login
+    if (urlPubkey && !user) {
+      setUser({ pubkey: urlPubkey, isWhitelisted: false });
+      navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
+      return;
+    }
+
+    // Regular user redirect
     if (user) {
       navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
     }
-  }, [user, navigate, isIframe]);
+  }, [user, navigate, isIframe, urlPubkey, setUser]);
 
   const handleExtensionLogin = async () => {
     setIsLoading(true);
@@ -72,6 +81,15 @@ export function Login() {
       setIsLoading(false);
     }
   };
+
+  // If we're processing URL-based login, show loading state
+  if (urlPubkey && !user) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-8">
