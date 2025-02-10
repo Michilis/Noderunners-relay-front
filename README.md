@@ -116,20 +116,6 @@ You can combine iframe mode with URL-based authentication:
 <iframe src="https://your-relay-domain.com?iframe=1&npub=npub1..." width="100%" height="600px"></iframe>
 ```
 
-## Supported NIPs
-
-The relay supports the following Nostr Implementation Possibilities (NIPs):
-- NIP-01: Basic protocol flow description
-- NIP-02: Contact List and Petnames
-- NIP-04: Encrypted Direct Messages
-- NIP-09: Event Deletion
-- NIP-11: Relay Information Document
-- NIP-22: Event `created_at` Limits
-- NIP-28: Public Chat
-- NIP-40: Expiration Timestamp
-- NIP-70: Relay Payment Info
-- NIP-77: Lightning Network Relay Payment
-
 ## API Services
 
 ### LNbits Integration
@@ -155,10 +141,6 @@ The relay supports the following Nostr Implementation Possibilities (NIPs):
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For support, join our [Telegram group](https://t.me/noderunners) or visit [our website](https://noderunners.network).
 
 ## Acknowledgments
 
