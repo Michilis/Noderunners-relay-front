@@ -11,7 +11,7 @@ export const apiService = {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          identifier: pubkey,
+          npub: pubkey,
         }),
       });
 
@@ -48,7 +48,7 @@ export const apiService = {
           'X-Api-Key': apiKey,
         },
         body: JSON.stringify({
-          identifier: pubkey,
+          npub: pubkey,
         }),
       });
 
