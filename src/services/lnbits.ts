@@ -8,6 +8,7 @@ const api = axios.create({
   headers: {
     'X-Api-Key': API_KEY,
     'Content-Type': 'application/json',
+    Accept: 'application/json',
   },
 });
 
@@ -62,16 +63,26 @@ export const lnbitsService = {
     extra = {},
   }: CreateInvoiceParams): Promise<Invoice> {
     try {
-      const response = await api.post('/api/v1/payments', {
+      // Build a V1-safe payload: only include known/supported fields when defined
+      const payload: Record<string, any> = {
         out: false,
         amount,
         memo,
-        unit,
-        webhook,
-        internal,
-        extra,
-      });
-      return response.data;
+      };
+      if (unit) payload.unit = unit;
+      if (webhook) payload.webhook = webhook;
+      if (typeof internal === 'boolean') payload.internal = internal;
+      if (extra && Object.keys(extra).length > 0) payload.extra = extra;
+
+      const response = await api.post('/api/v1/payments', payload);
+      const data = response.data ?? {};
+      // Normalize response to ensure payment_request is always populated for the UI
+      const normalized: Invoice = {
+        ...data,
+        payment_request: data.payment_request || data.bolt11,
+        bolt11: data.bolt11 || data.payment_request,
+      };
+      return normalized;
     } catch (error) {
       console.error('Error creating invoice:', error);
       throw error;
@@ -82,10 +93,13 @@ export const lnbitsService = {
   async checkPayment(paymentHash: string): Promise<PaymentStatus> {
     try {
       const response = await api.get(`/api/v1/payments/${paymentHash}`);
+      const data = response.data || {};
+      // Normalize potential V1 shapes
+      const paid: boolean = (data.paid === true) || (data.status === 'paid') || (data.settled === true);
       return {
-        paid: response.data.paid,
-        preimage: response.data.preimage,
-        details: response.data.details,
+        paid,
+        preimage: data.preimage,
+        details: data.details,
       };
     } catch (error) {
       console.error('Error checking payment:', error);
@@ -150,17 +164,24 @@ export const lnbitsService = {
 
   // Long poll payment status
   async longPollPayment(paymentHash: string, timeout = 60000): Promise<boolean> {
-    try {
-      const response = await api.get(`/public/v1/payment/${paymentHash}`, {
-        timeout,
-      });
-      return response.data.paid;
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
-        return false; // Timeout reached
+    // Fallback to authenticated polling against V1 status endpoint to ensure compatibility
+    const start = Date.now();
+    const pollIntervalMs = 2000;
+    while (Date.now() - start < timeout) {
+      try {
+        const status = await this.checkPayment(paymentHash);
+        if (status.paid) return true;
+      } catch (error) {
+        // If transient error, keep polling until timeout
+        if (axios.isAxiosError(error) && (error.response?.status ?? 0) >= 500) {
+          // continue
+        } else {
+          console.error('Error polling payment:', error);
+          throw error;
+        }
       }
-      console.error('Error polling payment:', error);
-      throw error;
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
     }
+    return false;
   },
 };
