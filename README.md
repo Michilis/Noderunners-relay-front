@@ -118,27 +118,6 @@ You can combine iframe mode with URL-based authentication:
 <iframe src="https://your-relay-domain.com?iframe=1&npub=npub1..." width="100%" height="600px"></iframe>
 ```
 
-## API Services
-
-### LNbits Integration
-- Invoice creation
-- Payment verification
-- Exchange rate conversion
-- Wallet information
-
-### Relay API
-- User information
-- Whitelist management
-- Payment processing
-- Status monitoring
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## License
 
