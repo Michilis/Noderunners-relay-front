@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Flame, Menu, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 export function Navigation() {
-  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, setUser } = useStore();

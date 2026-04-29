@@ -3,7 +3,7 @@
 interface Window {
   nostr: {
     getPublicKey: () => Promise<string>;
-    signEvent: (event: any) => Promise<any>;
+    signEvent: (event: Record<string, unknown>) => Promise<Record<string, unknown>>;
     getRelays: () => Promise<{ [url: string]: { read: boolean; write: boolean; } }>;
     nip04: {
       encrypt: (pubkey: string, plaintext: string) => Promise<string>;

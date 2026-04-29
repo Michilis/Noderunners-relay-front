@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Flame, Zap, Shield, Globe, Server, Code, Cpu, Copy } from 'lucide-react';
+import { Zap, Shield, Globe, Server, Code, Cpu, Copy } from 'lucide-react';
 import { Notification } from '../components/Notification';
 import { useNotification } from '../hooks/useNotification';
 
@@ -8,6 +8,11 @@ export function Home() {
   const { isVisible, message, type, showNotification, hideNotification } = useNotification();
   const [searchParams] = useSearchParams();
   const isIframe = searchParams.get('iframe') === '1';
+
+  const supportedNips = (import.meta.env.VITE_SUPPORTED_NIPS ?? '')
+    .split(',')
+    .map((nip) => nip.trim())
+    .filter(Boolean);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -96,11 +101,18 @@ export function Home() {
               </h3>
               <div className="bg-gray-900 p-4 rounded-lg">
                 <div className="grid grid-cols-4 gap-2">
-                  {import.meta.env.VITE_SUPPORTED_NIPS.split(',').map(nip => (
-                    <span key={nip} className="bg-gray-800 px-3 py-1 rounded text-center">
-                      {nip}
+                  {supportedNips.length > 0 ? (
+                    supportedNips.map((nip) => (
+                      <span key={nip} className="bg-gray-800 px-3 py-1 rounded text-center">
+                        {nip}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="col-span-4 text-gray-500 text-sm">
+                      Set <code className="text-gray-400">VITE_SUPPORTED_NIPS</code> in your env (comma-separated, e.g.{' '}
+                      <code className="text-gray-400">1,2,4,40</code>).
                     </span>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>

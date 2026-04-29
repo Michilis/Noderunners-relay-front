@@ -109,7 +109,7 @@ export function ThankYou() {
           </p>
           <p className="flex items-center">
             <ArrowRight className="h-4 w-4 mr-2 text-orange-500" />
-            Access is permanent and doesn't require renewal
+            Lifetime plans stay active without renewal; yearly plans renew on their expiry date
           </p>
         </div>
       </div>

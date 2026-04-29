@@ -1,19 +1,16 @@
 export interface NostrUser {
   pubkey: string;
   isWhitelisted: boolean;
-  timeRemaining?: number;
   npub?: string;
+  username?: string;
+  /** From GET /v1/users when registered */
+  subscriptionType?: 'yearly' | 'lifetime' | string;
+  /** ISO date string when applicable */
+  expiresAt?: string | null;
 }
 
 export interface LightningInvoice {
   paymentRequest: string;
   qrCode: string;
   paymentHash: string;
-}
-
-export interface UserResponse {
-  pubkey: string;
-  npub: string;
-  time_remaining?: number;
-  is_whitelisted: boolean;
 }

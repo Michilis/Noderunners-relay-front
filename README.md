@@ -9,20 +9,20 @@ wss://relay.noderunners.network
 
 ## Features
 
-- ⚡ Lightning Network integration for payments
-- 🔒 Secure authentication with Nostr
-- 💻 Modern, responsive web interface
-- 📊 Real-time relay statistics
-- 🔍 Uptime monitoring
-- 🖼️ Iframe support for embedding
-- 🔑 Multiple login methods (Extension, Manual, URL-based)
+- Lightning payments via the relay API (invoice creation and status)
+- Secure authentication with Nostr
+- Modern, responsive web interface
+- Real-time relay statistics
+- Uptime monitoring
+- Iframe support for embedding
+- Multiple login methods (Extension, Manual, URL-based)
 
 ## Tech Stack
 
 - **Frontend**: React + TypeScript + Vite
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
-- **Payment**: LNbits Integration
+- **Payments**: [NIP-05 relay API](../Nip05_api) (`/v1/pricing`, `/v1/invoices`, `/v1/users/…`)
 - **Authentication**: Nostr Protocol
 - **State Management**: Zustand
 
@@ -31,27 +31,17 @@ wss://relay.noderunners.network
 Create a `.env` file in the root directory with the following variables:
 
 ```env
-# LNbits Configuration
-VITE_LNBITS_URL="your-lnbits-url"
-VITE_LNBITS_API_KEY="your-api-key"
-
 # App Settings
 VITE_APP_NAME="Noderunners Relay"
 VITE_APP_DESCRIPTION="A high-performance Nostr relay built by Bitcoiners, for Bitcoiners"
 VITE_LOGO_URL="your-logo-url"
 VITE_GITHUB_URL="your-github-url"
 
-# Nostr Settings
+# Nostr — relay URL for clients; API URL serves /.well-known/nostr.json and /v1/*
 VITE_NOSTR_RELAY_URL="wss://your-relay-url"
-VITE_API_URL="your-api-url"
+VITE_API_URL="https://your-api-host"
 VITE_SUPPORTED_NIPS="1,2,4,9,11,22,28,40,70,77"
 VITE_RELAY_SOFTWARE="strfry v1.0.3"
-
-# Payment Settings
-VITE_MIN_PAYMENT_AMOUNT=10000
-VITE_PAYMENT_MEMO="Noderunners Relay Access"
-VITE_PAYMENT_CURRENCY="sat"
-VITE_WEBHOOK_URL="your-webhook-url"
 
 # Feature Flags
 VITE_ENABLE_WHITELIST=true
@@ -86,10 +76,10 @@ The application supports multiple authentication methods:
 
 1. **Nostr Extension**
    - Uses browser extensions like Alby for seamless authentication
-   - Automatically retrieves the user's public key
+   - Automatically retrieves your public key
 
 2. **Manual Entry**
-   - Users can manually input their npub or hex public key
+   - You can manually input your npub or hex public key
    - Supports both formats for maximum flexibility
 
 3. **URL-based Authentication**
@@ -127,4 +117,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Built by the Noderunners community
 - Powered by [strfry](https://github.com/hoytech/strfry)
-- Lightning Network integration via [LNbits](https://lnbits.com)

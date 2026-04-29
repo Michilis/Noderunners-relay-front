@@ -9,16 +9,51 @@ import { useNotification } from '../hooks/useNotification';
 export function Dashboard() {
   const navigate = useNavigate();
   const { user, setUser } = useStore();
+  const isDemoMode = import.meta.env.VITE_ENABLE_DEMO === 'true';
   const [uptime, setUptime] = useState<string | null>(null);
   const [activeUsers, setActiveUsers] = useState<number | null>(null);
+  const [lifetimeSats, setLifetimeSats] = useState<number | null>(() =>
+    isDemoMode ? 10000 : null
+  );
+  const [yearlySats, setYearlySats] = useState<number | null>(() =>
+    isDemoMode ? 1000 : null
+  );
   const [loading, setLoading] = useState(true);
-  const isDemoMode = import.meta.env.VITE_ENABLE_DEMO === 'true';
   const apiUrl = import.meta.env.VITE_API_URL;
   const { isVisible, message, type, showNotification, hideNotification } = useNotification();
   const [searchParams] = useSearchParams();
   const isIframe = searchParams.get('iframe') === '1';
 
-  // Check user authentication and fetch status once
+  const lifetimeLabel =
+    lifetimeSats != null ? `${lifetimeSats.toLocaleString()} sats` : '…';
+
+  const yearlyLabel =
+    yearlySats != null ? `${yearlySats.toLocaleString()} sats` : '…';
+
+  useEffect(() => {
+    if (isDemoMode) {
+      return;
+    }
+    let cancelled = false;
+    void apiService
+      .getPricing()
+      .then((p) => {
+        if (!cancelled) {
+          setLifetimeSats(p.lifetime_sats);
+          setYearlySats(p.yearly_sats);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLifetimeSats(null);
+          setYearlySats(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemoMode]);
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -29,29 +64,41 @@ export function Dashboard() {
       if (!isDemoMode) {
         try {
           const userInfo = await apiService.getUserInfo(user.pubkey);
-          setUser({
-            ...user,
-            isWhitelisted: userInfo.is_whitelisted,
-            timeRemaining: userInfo.time_remaining,
-            npub: userInfo.npub,
-          });
-        } catch (error: any) {
-          if (error.response?.status === 404 || error) {
+          if (userInfo) {
+            setUser({
+              ...user,
+              isWhitelisted: userInfo.is_whitelisted,
+              npub: userInfo.npub,
+              username: userInfo.username,
+              subscriptionType: userInfo.subscription_type,
+              expiresAt: userInfo.expires_at ?? null,
+            });
+          } else {
             setUser({
               ...user,
               isWhitelisted: false,
+              subscriptionType: undefined,
+              expiresAt: undefined,
             });
           }
+        } catch (error: unknown) {
           console.error('Failed to fetch user status:', error);
+          setUser({
+            ...user,
+            isWhitelisted: false,
+            subscriptionType: undefined,
+            expiresAt: undefined,
+          });
         }
       }
       setLoading(false);
     };
 
-    checkUserStatus();
+    void checkUserStatus();
+    // Intentionally depend on pubkey only so we don't re-fetch when whitelist state updates from this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync user's pubkey identity only
   }, [user?.pubkey, navigate, setUser, isDemoMode]);
 
-  // Fetch uptime and active users
   useEffect(() => {
     const fetchUptime = async () => {
       if (isDemoMode) {
@@ -79,7 +126,8 @@ export function Dashboard() {
       }
 
       try {
-        const response = await fetch(`${apiUrl}/.well-known/nostr.json`);
+        const base = String(apiUrl ?? '').replace(/\/$/, '');
+        const response = await fetch(`${base}/.well-known/nostr.json`);
         const data = await response.json();
         setActiveUsers(data.names ? Object.keys(data.names).length : 0);
       } catch (error) {
@@ -115,6 +163,24 @@ export function Dashboard() {
     navigate('/login');
   };
 
+  const toPayment = (plan: 'yearly' | 'lifetime') => {
+    const q = new URLSearchParams();
+    q.set('plan', plan);
+    if (isIframe) q.set('iframe', '1');
+    navigate(`/payment?${q.toString()}`);
+  };
+
+  const formatExpiry = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+    } catch {
+      return iso;
+    }
+  };
+
   if (loading || !user) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
@@ -123,10 +189,14 @@ export function Dashboard() {
     );
   }
 
+  const showYearlyRenewal =
+    user.isWhitelisted &&
+    user.subscriptionType === 'yearly' &&
+    Boolean(user.expiresAt);
+
   return (
     <>
       <div className="max-w-6xl mx-auto space-y-4 md:space-y-8">
-        {/* Status Banner */}
         <div className={`p-4 md:p-8 rounded-lg ${user.isWhitelisted ? 'bg-green-900/20' : 'bg-orange-900/20'}`}>
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 space-y-4 md:space-y-0">
             <div className="flex items-center space-x-4">
@@ -150,45 +220,78 @@ export function Dashboard() {
                 You can now use this relay in your Nostr client. Add the relay URL below
                 to your client's relay list to start posting and receiving messages.
               </p>
+              {showYearlyRenewal && user.expiresAt ? (
+                <>
+                  <p className="text-gray-300 text-base">
+                    Yearly subscription active until{' '}
+                    <strong className="text-white">{formatExpiry(user.expiresAt)}</strong>.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => toPayment('yearly')}
+                      className="flex flex-1 items-center justify-center px-4 py-3 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold space-x-2"
+                    >
+                      <Zap className="h-5 w-5" />
+                      <span>Add another year ({yearlyLabel})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toPayment('lifetime')}
+                      className="flex flex-1 items-center justify-center px-4 py-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-semibold border border-gray-600 space-x-2"
+                    >
+                      <Zap className="h-5 w-5" />
+                      <span>Upgrade to lifetime ({lifetimeLabel})</span>
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-4 md:space-y-6">
               <div className="space-y-4">
-                <p className="text-orange-400 text-base md:text-lg">
-                  One-time Payment Required
-                </p>
+                <p className="text-orange-400 text-base md:text-lg">Lightning payment</p>
                 <div className="space-y-2">
                   <p className="text-gray-400">
-                    To use the Noderunners relay, you need to make a one-time payment of
-                    10,000 sats. This payment helps maintain the relay's infrastructure
-                    and ensures high-quality service.
+                    Choose yearly access ({yearlyLabel}) or lifetime access ({lifetimeLabel}). Pricing comes from the
+                    relay API and funds relay infrastructure.
                   </p>
                   <p className="text-gray-400">
                     <span className="text-orange-400">21%</span> of all payments go to the{' '}
-                    <a 
-                      href="https://tip.noderunners.org" 
-                      target="_blank" 
+                    <a
+                      href="https://tip.noderunners.org"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-orange-400 hover:underline"
                     >
                       Noderunners community pot
-                    </a>
-                    {' '}to support the development of Bitcoin and Nostr projects.
+                    </a>{' '}
+                    to support the development of Bitcoin and Nostr projects.
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => navigate('/payment')}
-                className="flex items-center justify-center w-full px-4 md:px-6 py-3 md:py-4 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold space-x-2"
-              >
-                <Zap className="h-5 w-5" />
-                <span>Pay 10,000 sats for Access</span>
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={() => toPayment('yearly')}
+                  className="flex flex-1 items-center justify-center px-4 md:px-6 py-3 md:py-4 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold space-x-2"
+                >
+                  <Zap className="h-5 w-5" />
+                  <span>Pay for one year ({yearlyLabel})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toPayment('lifetime')}
+                  className="flex flex-1 items-center justify-center px-4 md:px-6 py-3 md:py-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-semibold border border-gray-600 space-x-2"
+                >
+                  <Zap className="h-5 w-5" />
+                  <span>Pay for lifetime ({lifetimeLabel})</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Connection Information */}
         <div className="bg-gray-800 rounded-lg p-4 md:p-8">
           <h2 className="text-lg md:text-xl font-bold mb-4 md:mb-6">Connection Information</h2>
           <div>
@@ -209,7 +312,6 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="bg-gray-800 p-4 md:p-6 rounded-lg">
             <div className="flex items-center justify-between mb-4">
@@ -230,7 +332,6 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Logout Button (only shown in iframe mode) */}
         {isIframe && (
           <div className="flex justify-center">
             <button

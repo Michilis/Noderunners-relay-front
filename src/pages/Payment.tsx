@@ -1,104 +1,173 @@
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Copy, CheckCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { lnbitsService } from '../services/lnbits';
 import { apiService } from '../services/api';
 import type { LightningInvoice } from '../types';
 import { Notification } from '../components/Notification';
 import { useNotification } from '../hooks/useNotification';
 
+const POLL_MS = 2000;
+
+export type Plan = 'yearly' | 'lifetime';
+
+function formatInvoiceCountdown(expiresAtIso: string, nowMs: number): string {
+  const end = new Date(expiresAtIso).getTime();
+  const ms = Math.max(0, end - nowMs);
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 export function Payment() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, setUser } = useStore();
-  const [invoice, setInvoice] = useState<LightningInvoice | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const isDemoMode = import.meta.env.VITE_ENABLE_DEMO === 'true';
-  const { isVisible, message, type, showNotification, hideNotification } = useNotification();
-  const [checkingPayment, setCheckingPayment] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const isIframe = searchParams.get('iframe') === '1';
+  const planParam = searchParams.get('plan');
+  const resolvedPlan: Plan | null =
+    planParam === 'yearly' || planParam === 'lifetime' ? planParam : null;
 
+  const { user } = useStore();
+  const isDemoMode = import.meta.env.VITE_ENABLE_DEMO === 'true';
+  const [invoice, setInvoice] = useState<LightningInvoice | null>(null);
+  const [amountSats, setAmountSats] = useState<number | null>(null);
+  const [expiresAtIso, setExpiresAtIso] = useState<string | null>(null);
+  const [pricingYearly, setPricingYearly] = useState<number | null>(null);
+  const [pricingLifetime, setPricingLifetime] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { isVisible, message, type, showNotification, hideNotification } = useNotification();
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const isIframe = searchParams.get('iframe') === '1';
+  const pollingRef = useRef(false);
+
+  const handlePaymentSuccess = useCallback(() => {
+    setShowSuccess(true);
+    setTimeout(() => {
+      navigate(isIframe ? '/thank-you?iframe=1' : '/thank-you');
+    }, 1500);
+  }, [navigate, isIframe]);
+
+  useEffect(() => {
+    if (!expiresAtIso) return;
+    const id = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [expiresAtIso]);
+
+  useEffect(() => {
+    if (isDemoMode || resolvedPlan) return;
+    let cancelled = false;
+    void apiService
+      .getPricing()
+      .then((p) => {
+        if (!cancelled) {
+          setPricingYearly(p.yearly_sats);
+          setPricingLifetime(p.lifetime_sats);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemoMode, resolvedPlan]);
+
+  /** Auth redirect — separate from invoice fetch so unrelated store updates don't cancel invoice loading. */
   useEffect(() => {
     if (!user) {
       navigate(isIframe ? '/login?iframe=1' : '/login');
       return;
     }
-
-    if (user.isWhitelisted) {
+    // Active subscribers may still open /payment?plan=… for renewal or lifetime upgrade.
+    if (user.isWhitelisted && !resolvedPlan) {
       navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
+    }
+  }, [user, navigate, isIframe, resolvedPlan]);
+
+  const pubkey = user?.pubkey;
+
+  useEffect(() => {
+    if (!pubkey || isDemoMode || !resolvedPlan) {
       return;
     }
 
-    const generateInvoice = async () => {
-      try {
-        const response = await lnbitsService.createInvoice({
-          amount: 10000,
-          memo: `${import.meta.env.VITE_PAYMENT_MEMO || "Noderunners Relay Access"} - ${user.pubkey}`,
-          webhook: import.meta.env.VITE_WEBHOOK_URL,
-          extra: {
-            pubkey: user.pubkey,
-            type: 'relay_access'
-          }
-        });
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | undefined;
 
+    const poll = (paymentHash: string) => {
+      intervalId = window.setInterval(() => {
+        void (async () => {
+          if (pollingRef.current) return;
+          pollingRef.current = true;
+          try {
+            const st = await apiService.getInvoiceStatus(paymentHash);
+            if (cancelled) return;
+            if (st.status === 'paid') {
+              if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = undefined;
+              }
+              handlePaymentSuccess();
+            }
+            if (st.status === 'expired') {
+              setError('This invoice has expired. Reload to generate a new one.');
+              if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = undefined;
+              }
+            }
+          } catch (err) {
+            console.error('Error checking payment status:', err);
+          } finally {
+            pollingRef.current = false;
+          }
+        })();
+      }, POLL_MS);
+    };
+
+    const run = async () => {
+      try {
+        const pricing = await apiService.getPricing();
+        if (cancelled) return;
+
+        if (!pricing.lightning_enabled) {
+          setError('Lightning payments are temporarily unavailable. Please try again later.');
+          return;
+        }
+
+        setPricingYearly(pricing.yearly_sats);
+        setPricingLifetime(pricing.lifetime_sats);
+
+        const response = await apiService.createInvoice({
+          pubkey,
+          subscription_type: resolvedPlan === 'yearly' ? 'yearly' : 'lifetime',
+          years: resolvedPlan === 'yearly' ? 1 : undefined,
+        });
+        if (cancelled) return;
+
+        setAmountSats(response.amount_sats);
+        setExpiresAtIso(response.expires_at);
         setInvoice({
           paymentRequest: response.payment_request,
           qrCode: response.payment_request,
-          paymentHash: response.payment_hash
+          paymentHash: response.payment_hash,
         });
-
-        pollPaymentStatus(response.payment_hash);
+        poll(response.payment_hash);
       } catch (err) {
+        if (cancelled) return;
         console.error('Failed to generate invoice:', err);
-        setError('Failed to generate invoice. Please try again later.');
-      } finally {
-        setLoading(false);
+        const msg = err instanceof Error ? err.message : 'Failed to generate invoice.';
+        setError(msg);
       }
     };
 
-    generateInvoice();
-  }, [user, navigate, isIframe]);
+    void run();
 
-  const handlePaymentSuccess = async () => {
-    setShowSuccess(true);
-    setTimeout(() => {
-      navigate(isIframe ? '/thank-you?iframe=1' : '/thank-you');
-    }, 1500);
-    return true;
-  };
-
-  const pollPaymentStatus = async (paymentHash: string) => {
-    const checkPayment = async () => {
-      if (checkingPayment) return false;
-      
-      setCheckingPayment(true);
-      try {
-        const status = await lnbitsService.checkPayment(paymentHash);
-        if (status.paid) {
-          return handlePaymentSuccess();
-        }
-        return false;
-      } catch (error) {
-        console.error('Error checking payment status:', error);
-        return false;
-      } finally {
-        setCheckingPayment(false);
-      }
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
     };
-
-    const interval = setInterval(async () => {
-      const paid = await checkPayment();
-      if (paid) {
-        clearInterval(interval);
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  };
+  }, [pubkey, isDemoMode, resolvedPlan, handlePaymentSuccess]);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -114,11 +183,87 @@ export function Payment() {
     handlePaymentSuccess();
   };
 
-  if (loading) {
+  if (!user) {
+    return null;
+  }
+
+  const showFetchSpinner =
+    !isDemoMode && !!resolvedPlan && !invoice && !error;
+
+  const navigateWithPlan = (p: Plan) => {
+    setError(null);
+    const q = new URLSearchParams();
+    q.set('plan', p);
+    if (isIframe) q.set('iframe', '1');
+    navigate(`/payment?${q.toString()}`);
+  };
+
+  const expectedSatsHint =
+    resolvedPlan === 'yearly'
+      ? pricingYearly != null
+        ? `${pricingYearly.toLocaleString()} sats`
+        : null
+      : pricingLifetime != null
+        ? `${pricingLifetime.toLocaleString()} sats`
+        : null;
+
+  const planSubtitle =
+    resolvedPlan === 'yearly'
+      ? 'One year of relay access'
+      : resolvedPlan === 'lifetime'
+        ? 'Lifetime relay access'
+        : '';
+
+  if (showFetchSpinner) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
       </div>
+    );
+  }
+
+  if (!isDemoMode && !resolvedPlan) {
+    return (
+      <>
+        <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-8">
+          <h1 className="text-2xl font-bold mb-2 text-center">Choose a plan</h1>
+          <p className="text-gray-400 text-center mb-8">
+            Pick yearly access or pay once for lifetime access.
+          </p>
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => navigateWithPlan('yearly')}
+              className="w-full px-6 py-4 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold text-lg"
+            >
+              Pay for one year
+              {pricingYearly != null ? (
+                <span className="block text-sm font-normal text-orange-100 mt-1">
+                  {pricingYearly.toLocaleString()} sats / year
+                </span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateWithPlan('lifetime')}
+              className="w-full px-6 py-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-semibold text-lg border border-gray-600"
+            >
+              Pay for lifetime
+              {pricingLifetime != null ? (
+                <span className="block text-sm font-normal text-gray-300 mt-1">
+                  {pricingLifetime.toLocaleString()} sats one-time
+                </span>
+              ) : null}
+            </button>
+          </div>
+        </div>
+        <Notification
+          isVisible={isVisible}
+          message={message}
+          type={type}
+          onClose={hideNotification}
+        />
+      </>
     );
   }
 
@@ -138,13 +283,45 @@ export function Payment() {
     );
   }
 
-  if (!invoice) {
+  if (isDemoMode) {
+    return (
+      <>
+        <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-8">
+          <h1 className="text-2xl font-bold mb-6 text-center">Payment (demo)</h1>
+          <button
+            onClick={handleDemoPayment}
+            className="w-full px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-semibold text-gray-300"
+          >
+            Demo: Simulate Payment
+          </button>
+        </div>
+        <Notification
+          isVisible={isVisible}
+          message={message}
+          type={type}
+          onClose={hideNotification}
+        />
+      </>
+    );
+  }
+
+  if (!invoice || !resolvedPlan) {
     return (
       <div className="text-center">
         <p className="text-red-500">Failed to generate invoice. Please try again.</p>
       </div>
     );
   }
+
+  const satsLabel =
+    amountSats != null ? `${amountSats.toLocaleString()} sats` : expectedSatsHint ?? '—';
+
+  const countdown =
+    expiresAtIso && Date.parse(expiresAtIso) > nowTick
+      ? formatInvoiceCountdown(expiresAtIso, nowTick)
+      : expiresAtIso
+        ? 'Expired'
+        : null;
 
   return (
     <>
@@ -159,10 +336,15 @@ export function Payment() {
         )}
 
         <h1 className="text-2xl font-bold mb-6 text-center">Payment Required</h1>
-        
+
         <div className="text-center mb-6">
-          <p className="text-3xl font-bold text-orange-500">10,000 sats</p>
-          <p className="text-gray-400">One-time payment for relay access</p>
+          <p className="text-3xl font-bold text-orange-500">{satsLabel}</p>
+          <p className="text-gray-400">{planSubtitle}</p>
+          {countdown != null ? (
+            <p className="text-sm text-amber-400/90 mt-3 font-mono">
+              Invoice expires in {countdown}
+            </p>
+          ) : null}
         </div>
 
         <div className="bg-white p-4 rounded-lg mb-6">
@@ -198,15 +380,6 @@ export function Payment() {
         >
           Open in Wallet
         </button>
-
-        {isDemoMode && (
-          <button
-            onClick={handleDemoPayment}
-            className="w-full px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-semibold text-gray-300"
-          >
-            Demo: Simulate Payment
-          </button>
-        )}
       </div>
       <Notification
         isVisible={isVisible}

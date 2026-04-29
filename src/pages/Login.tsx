@@ -46,17 +46,18 @@ export function Login() {
 
       setUser({ pubkey, isWhitelisted: false });
       navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
-    } catch (error: any) {
-      if (error.message === 'Rejected by user') {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
+      if (msg === 'Rejected by user') {
         return;
       }
       console.error('Login failed:', error);
-      
-      if (error.message.includes('Nostr provider not found')) {
+
+      if (msg.includes('Nostr provider not found')) {
         alert('No Nostr extension detected. Please install Alby or another Nostr extension and try again.');
-      } else if (error.message.includes('No public key found')) {
+      } else if (msg.includes('No public key found')) {
         alert('Could not access your Nostr public key. Please make sure you\'re logged into your Nostr extension.');
-      } else if (error.message !== 'Rejected by user') {
+      } else if (msg !== 'Rejected by user') {
         alert('Failed to connect. Please make sure you have a Nostr extension installed and try again.');
       }
     } finally {
