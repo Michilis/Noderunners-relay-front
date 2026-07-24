@@ -40,12 +40,16 @@ coverage/
 # Editor directories and files
 .vscode/
 .idea/
+.claude/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 *~
+
+# Local / experimental
+new_design/
 
 # OS metadata
 .DS_Store
