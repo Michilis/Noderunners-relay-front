@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Zap } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { useTranslation } from '../i18n';
+import { Button, Card, Input, Spinner } from '../components/ui';
 
 export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, setUser } = useStore();
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [pubkeyInput, setPubkeyInput] = useState('');
   const isIframe = searchParams.get('iframe') === '1';
@@ -54,11 +57,11 @@ export function Login() {
       console.error('Login failed:', error);
 
       if (msg.includes('Nostr provider not found')) {
-        alert('No Nostr extension detected. Please install Alby or another Nostr extension and try again.');
+        alert(t('login.alertNoExtension'));
       } else if (msg.includes('No public key found')) {
-        alert('Could not access your Nostr public key. Please make sure you\'re logged into your Nostr extension.');
+        alert(t('login.alertNoPubkey'));
       } else if (msg !== 'Rejected by user') {
-        alert('Failed to connect. Please make sure you have a Nostr extension installed and try again.');
+        alert(t('login.alertFailed'));
       }
     } finally {
       setIsLoading(false);
@@ -67,7 +70,7 @@ export function Login() {
 
   const handlePubkeyLogin = async () => {
     if (!pubkeyInput.trim()) {
-      alert('Please enter a public key or npub');
+      alert(t('login.alertEnterKey'));
       return;
     }
 
@@ -77,7 +80,7 @@ export function Login() {
       navigate(isIframe ? '/dashboard?iframe=1' : '/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
-      alert('Failed to login with the provided public key. Please check the format and try again.');
+      alert(t('login.alertLoginFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -85,86 +88,76 @@ export function Login() {
 
   // If we're processing URL-based login, show loading state
   if (urlPubkey && !user) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
-      </div>
-    );
+    return <Spinner page />;
   }
 
   return (
-    <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-8">
-      <h1 className="text-2xl font-bold mb-6 text-center">Connect with Nostr</h1>
-      
-      <p className="text-gray-400 mb-6">
-        To access the Noderunners relay, connect using your Nostr account.
-        You can use a Nostr extension or enter your public key manually.
+    <Card elevated className="max-w-md mx-auto p-8">
+      <h1 className="font-display text-headline-lg font-semibold mb-2 text-center">{t('login.title')}</h1>
+
+      <p className="text-secondary font-body text-body-md mb-6 text-center">
+        {t('login.subtitle')}
       </p>
 
       <div className="space-y-4">
-        <button
-          onClick={handleExtensionLogin}
-          disabled={isLoading}
-          className={`w-full px-6 py-3 bg-orange-500 rounded-lg font-semibold flex items-center justify-center space-x-2
-            ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-600'} transition-colors`}
-        >
+        <Button onClick={handleExtensionLogin} disabled={isLoading} className="w-full">
           {isLoading ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              <span>Connecting...</span>
+              <span>{t('login.connecting')}</span>
             </>
           ) : (
             <>
               <Zap className="h-5 w-5" />
-              <span>Sign in with Extension</span>
+              <span>{t('login.signInExtension')}</span>
             </>
           )}
-        </button>
+        </Button>
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-700"></div>
+            <div className="w-full border-t border-surface-variant"></div>
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-gray-800 text-gray-400">Or enter manually</span>
+          <div className="relative flex justify-center">
+            <span className="px-2 bg-surface-container-high font-mono text-label-sm-mono text-secondary uppercase tracking-widest">
+              {t('login.orEnterManually')}
+            </span>
           </div>
         </div>
 
         <div className="space-y-3">
-          <label htmlFor="pubkey" className="block text-sm font-medium text-gray-300">
-            Enter your Nostr public key or npub
+          <label htmlFor="pubkey" className="block font-mono text-label-mono text-secondary">
+            {t('login.enterKeyLabel')}
           </label>
-          <input
+          <Input
             type="text"
             id="pubkey"
             value={pubkeyInput}
             onChange={(e) => setPubkeyInput(e.target.value)}
-            placeholder="npub1... or hex public key"
-            className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-white placeholder-gray-500"
+            placeholder={t('login.placeholder')}
           />
-          <button
+          <Button
+            variant="secondary"
             onClick={handlePubkeyLogin}
             disabled={isLoading || !pubkeyInput.trim()}
-            className={`w-full px-6 py-3 bg-gray-700 rounded-lg font-semibold
-              ${isLoading || !pubkeyInput.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-600'} 
-              transition-colors`}
+            className="w-full"
           >
-            Continue
-          </button>
+            {t('login.continue')}
+          </Button>
         </div>
       </div>
 
-      <p className="mt-4 text-sm text-gray-400 text-center hidden md:block">
-        Don't have a Nostr extension?{' '}
+      <p className="mt-6 font-body text-body-md text-secondary text-center hidden md:block">
+        {t('login.noExtension')}{' '}
         <a
           href="https://getalby.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-orange-500 hover:underline"
+          className="text-primary hover:underline"
         >
-          Get Alby
+          {t('login.getAlby')}
         </a>
       </p>
-    </div>
+    </Card>
   );
 }

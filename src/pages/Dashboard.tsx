@@ -1,14 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Shield, AlertTriangle, Zap, Copy, Activity, Users, LogOut } from 'lucide-react';
+import { Shield, AlertTriangle, Zap, Activity, Users, LogOut } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { apiService } from '../services/api';
 import { Notification } from '../components/Notification';
 import { useNotification } from '../hooks/useNotification';
+import { useTranslation } from '../i18n';
+import { Button, Card, MetricCard, Spinner, TerminalPanel } from '../components/ui';
+
+const RELAY_URL = import.meta.env.VITE_NOSTR_RELAY_URL ?? '';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const { user, setUser } = useStore();
+  const { t, lang } = useTranslation();
   const isDemoMode = import.meta.env.VITE_ENABLE_DEMO === 'true';
   const [uptime, setUptime] = useState<string | null>(null);
   const [activeUsers, setActiveUsers] = useState<number | null>(null);
@@ -151,10 +156,10 @@ export function Dashboard() {
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      showNotification('Relay URL copied to clipboard');
+      showNotification(t('dashboard.notifyCopied'));
     } catch (err) {
       console.error('Failed to copy:', err);
-      showNotification('Failed to copy URL', 'error');
+      showNotification(t('dashboard.notifyCopyFailed'), 'error');
     }
   };
 
@@ -172,7 +177,7 @@ export function Dashboard() {
 
   const formatExpiry = (iso: string) => {
     try {
-      return new Date(iso).toLocaleString(undefined, {
+      return new Date(iso).toLocaleString(lang, {
         dateStyle: 'medium',
         timeStyle: 'short',
       });
@@ -182,11 +187,7 @@ export function Dashboard() {
   };
 
   if (loading || !user) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
-      </div>
-    );
+    return <Spinner page />;
   }
 
   const showYearlyRenewal =
@@ -196,151 +197,122 @@ export function Dashboard() {
 
   return (
     <>
-      <div className="max-w-6xl mx-auto space-y-4 md:space-y-8">
-        <div className={`p-4 md:p-8 rounded-lg ${user.isWhitelisted ? 'bg-green-900/20' : 'bg-orange-900/20'}`}>
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 space-y-4 md:space-y-0">
-            <div className="flex items-center space-x-4">
-              {user.isWhitelisted ? (
-                <Shield className="h-8 md:h-12 w-8 md:w-12 text-green-500" />
-              ) : (
-                <AlertTriangle className="h-8 md:h-12 w-8 md:w-12 text-orange-500" />
-              )}
-              <h1 className="text-2xl md:text-3xl font-bold">
-                {user.isWhitelisted ? 'Whitelisted' : 'Payment Required'}
-              </h1>
-            </div>
+      <div className="max-w-5xl mx-auto space-y-4 md:space-y-8">
+        <Card
+          elevated
+          className={`p-6 md:p-8 ${user.isWhitelisted ? 'border-l-4 border-l-status-success' : 'border-l-4 border-l-primary-container'}`}
+        >
+          <div className="flex items-center space-x-4 mb-4">
+            {user.isWhitelisted ? (
+              <Shield className="h-8 md:h-12 w-8 md:w-12 text-status-success" />
+            ) : (
+              <AlertTriangle className="h-8 md:h-12 w-8 md:w-12 text-primary" />
+            )}
+            <h1 className="font-display text-headline-lg font-semibold">
+              {user.isWhitelisted ? t('dashboard.whitelisted') : t('dashboard.paymentRequired')}
+            </h1>
           </div>
 
           {user.isWhitelisted ? (
             <div className="space-y-4">
-              <p className="text-green-400 text-base md:text-lg">
-                ✓ Your account has full access to the Noderunners relay
+              <p className="text-status-success font-body text-body-lg">
+                {t('dashboard.fullAccess')}
               </p>
-              <p className="text-gray-400">
-                You can now use this relay in your Nostr client. Add the relay URL below
-                to your client's relay list to start posting and receiving messages.
+              <p className="text-secondary font-body text-body-md">
+                {t('dashboard.useInClient')}
               </p>
               {showYearlyRenewal && user.expiresAt ? (
                 <>
-                  <p className="text-gray-300 text-base">
-                    Yearly subscription active until{' '}
-                    <strong className="text-white">{formatExpiry(user.expiresAt)}</strong>.
+                  <p className="text-on-surface font-body text-body-md">
+                    {t('dashboard.yearlyActiveUntil')}{' '}
+                    <strong className="text-primary">{formatExpiry(user.expiresAt)}</strong>.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => toPayment('yearly')}
-                      className="flex flex-1 items-center justify-center px-4 py-3 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold space-x-2"
-                    >
+                    <Button className="flex-1" onClick={() => toPayment('yearly')}>
                       <Zap className="h-5 w-5" />
-                      <span>Add another year ({yearlyLabel})</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => toPayment('lifetime')}
-                      className="flex flex-1 items-center justify-center px-4 py-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-semibold border border-gray-600 space-x-2"
-                    >
+                      <span>{t('dashboard.addAnotherYear', { price: yearlyLabel })}</span>
+                    </Button>
+                    <Button variant="secondary" className="flex-1" onClick={() => toPayment('lifetime')}>
                       <Zap className="h-5 w-5" />
-                      <span>Upgrade to lifetime ({lifetimeLabel})</span>
-                    </button>
+                      <span>{t('dashboard.upgradeLifetime', { price: lifetimeLabel })}</span>
+                    </Button>
                   </div>
                 </>
               ) : null}
             </div>
           ) : (
             <div className="space-y-4 md:space-y-6">
-              <div className="space-y-4">
-                <p className="text-orange-400 text-base md:text-lg">Lightning payment</p>
-                <div className="space-y-2">
-                  <p className="text-gray-400">
-                    Choose yearly access ({yearlyLabel}) or lifetime access ({lifetimeLabel}). Pricing comes from the
-                    relay API and funds relay infrastructure.
-                  </p>
-                  <p className="text-gray-400">
-                    <span className="text-orange-400">21%</span> of all payments go to the{' '}
-                    <a
-                      href="https://tip.noderunners.org"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-orange-400 hover:underline"
-                    >
-                      Noderunners community pot
-                    </a>{' '}
-                    to support the development of Bitcoin and Nostr projects.
-                  </p>
-                </div>
+              <div className="space-y-3">
+                <p className="text-primary font-body text-body-lg">{t('dashboard.lightningPayment')}</p>
+                <p className="text-secondary font-body text-body-md">
+                  {t('dashboard.chooseAccess', { yearly: yearlyLabel, lifetime: lifetimeLabel })}
+                </p>
+                <p className="text-secondary font-body text-body-md">
+                  <span className="text-primary">21%</span> {t('dashboard.communityPotText1')}{' '}
+                  <a
+                    href="https://tip.noderunners.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    {t('dashboard.communityPotLink')}
+                  </a>{' '}
+                  {t('dashboard.communityPotText2')}
+                </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  type="button"
-                  onClick={() => toPayment('yearly')}
-                  className="flex flex-1 items-center justify-center px-4 md:px-6 py-3 md:py-4 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold space-x-2"
-                >
+                <Button className="flex-1" onClick={() => toPayment('yearly')}>
                   <Zap className="h-5 w-5" />
-                  <span>Pay for one year ({yearlyLabel})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toPayment('lifetime')}
-                  className="flex flex-1 items-center justify-center px-4 md:px-6 py-3 md:py-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-semibold border border-gray-600 space-x-2"
-                >
+                  <span>{t('dashboard.payOneYear', { price: yearlyLabel })}</span>
+                </Button>
+                <Button variant="secondary" className="flex-1" onClick={() => toPayment('lifetime')}>
                   <Zap className="h-5 w-5" />
-                  <span>Pay for lifetime ({lifetimeLabel})</span>
-                </button>
+                  <span>{t('dashboard.payLifetime', { price: lifetimeLabel })}</span>
+                </Button>
               </div>
             </div>
           )}
-        </div>
+        </Card>
 
-        <div className="bg-gray-800 rounded-lg p-4 md:p-8">
-          <h2 className="text-lg md:text-xl font-bold mb-4 md:mb-6">Connection Information</h2>
-          <div>
-            <p className="text-gray-400 mb-2">Relay URL</p>
-            <div className="flex flex-col md:flex-row items-start md:items-center space-y-2 md:space-y-0 md:space-x-2">
-              <code className="w-full md:flex-1 block bg-gray-900 p-3 md:p-4 rounded-lg font-mono text-sm md:text-base break-all">
-                wss://relay.noderunners.network
-              </code>
-              <button
-                onClick={() => copyToClipboard('wss://relay.noderunners.network')}
-                className="w-full md:w-auto px-4 py-3 md:p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex items-center justify-center space-x-2"
-                title="Copy to clipboard"
-              >
-                <Copy className="h-5 w-5" />
-                <span className="md:hidden">Copy URL</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <Card className="p-6 md:p-8">
+          <h2 className="font-display text-headline-md font-semibold mb-4 md:mb-6">
+            {t('dashboard.connectionInfo')}
+          </h2>
+          <p className="font-mono text-label-mono text-secondary uppercase tracking-widest mb-2">
+            {t('dashboard.relayUrl')}
+          </p>
+          <TerminalPanel value={RELAY_URL} onCopy={copyToClipboard} wrap />
+        </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="bg-gray-800 p-4 md:p-6 rounded-lg">
-            <div className="flex items-center justify-between mb-4">
-              <Activity className="h-6 md:h-8 w-6 md:w-8 text-green-500" />
-              <span className="text-xs text-gray-400">Last 30 days</span>
-            </div>
-            <p className="text-xl md:text-2xl font-bold">{uptime || 'Loading...'}</p>
-            <p className="text-gray-400">Uptime</p>
-          </div>
-
-          <div className="bg-gray-800 p-4 md:p-6 rounded-lg">
-            <div className="flex items-center justify-between mb-4">
-              <Users className="h-6 md:h-8 w-6 md:w-8 text-blue-500" />
-              <span className="text-xs text-gray-400">Registered Users</span>
-            </div>
-            <p className="text-xl md:text-2xl font-bold">{activeUsers?.toLocaleString() || 'Loading...'}</p>
-            <p className="text-gray-400">Active Users</p>
-          </div>
+          <MetricCard
+            label={t('dashboard.uptime')}
+            value={
+              <span className="inline-flex items-center gap-2">
+                <Activity className="h-6 w-6 text-status-success" />
+                {uptime || '…'}
+              </span>
+            }
+            note={t('dashboard.last30Days')}
+          />
+          <MetricCard
+            label={t('dashboard.activeUsers')}
+            value={
+              <span className="inline-flex items-center gap-2">
+                <Users className="h-6 w-6 text-secondary" />
+                {activeUsers != null ? activeUsers.toLocaleString() : '…'}
+              </span>
+            }
+            note={t('dashboard.registeredNpubs')}
+          />
         </div>
 
         {isIframe && (
           <div className="flex justify-center">
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-2 px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-            >
+            <Button variant="outline" onClick={handleLogout}>
               <LogOut className="h-5 w-5" />
-              <span>Logout</span>
-            </button>
+              <span>{t('dashboard.logOut')}</span>
+            </Button>
           </div>
         )}
       </div>

@@ -38,10 +38,10 @@ VITE_LOGO_URL="your-logo-url"
 VITE_GITHUB_URL="your-github-url"
 
 # Nostr — relay URL for clients; API URL serves /.well-known/nostr.json and /v1/*
+# Supported NIPs and relay software are read live from the relay's NIP-11
+# information document (fetched from VITE_NOSTR_RELAY_URL), not configured here.
 VITE_NOSTR_RELAY_URL="wss://your-relay-url"
 VITE_API_URL="https://your-api-host"
-VITE_SUPPORTED_NIPS="1,2,4,9,11,22,28,40,70,77"
-VITE_RELAY_SOFTWARE="strfry v1.0.3"
 
 # Feature Flags
 VITE_ENABLE_WHITELIST=true

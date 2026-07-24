@@ -23,13 +23,19 @@ export function Notification({ message, isVisible, onClose, type = 'success' }: 
 
   return (
     <div className="fixed bottom-0 left-0 right-0 flex justify-center items-center p-4 pointer-events-none z-50">
-      <div className="bg-gray-800 text-white rounded-lg shadow-lg flex items-center space-x-3 px-4 py-3 animate-slide-up">
+      <div
+        role="status"
+        aria-live="polite"
+        className={`bg-surface-container-high border rounded flex items-center space-x-3 px-4 py-3 animate-slide-up text-on-surface shadow-lg ${
+          type === 'success' ? 'border-status-success/40' : 'border-status-error/40'
+        }`}
+      >
         {type === 'success' ? (
-          <Check className="h-5 w-5 text-green-500 flex-shrink-0" />
+          <Check className="h-5 w-5 text-status-success flex-shrink-0" />
         ) : (
-          <X className="h-5 w-5 text-red-500 flex-shrink-0" />
+          <X className="h-5 w-5 text-status-error flex-shrink-0" />
         )}
-        <p className="text-sm">{message}</p>
+        <p className="font-mono text-label-mono">{message}</p>
       </div>
     </div>
   );

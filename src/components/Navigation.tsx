@@ -1,126 +1,68 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Flame, Menu, X } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { useTranslation } from '../i18n';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { ThemeToggle } from './ThemeToggle';
+import { Button } from './ui';
 
 export function Navigation() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, setUser } = useStore();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { t } = useTranslation();
   const isIframe = searchParams.get('iframe') === '1';
 
   const handleLogout = () => {
     setUser(null);
-    setIsMenuOpen(false);
-    const newPath = '/login' + (isIframe ? '?iframe=1' : '');
-    navigate(newPath, { replace: true });
+    navigate('/login' + (isIframe ? '?iframe=1' : ''), { replace: true });
   };
 
-  const handleMenuClick = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
-  const handleNavigation = () => {
-    setIsMenuOpen(false);
-  };
-
-  // Helper function to add iframe parameter to paths
-  const getPath = (path: string) => {
-    return isIframe ? `${path}?iframe=1` : path;
-  };
+  const getPath = (path: string) => (isIframe ? `${path}?iframe=1` : path);
 
   return (
-    <nav className="border-b border-gray-800 bg-gray-900 sticky top-0 z-50">
+    <nav className="fixed top-0 w-full z-50 border-b border-outline-variant bg-background/95 backdrop-blur">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link to={getPath('/')} className="flex items-center space-x-2" onClick={handleNavigation}>
+          <Link
+            to={getPath('/')}
+            className="flex items-center space-x-2"
+          >
             {import.meta.env.VITE_LOGO_URL ? (
-              <img 
-                src={import.meta.env.VITE_LOGO_URL} 
-                alt="Noderunners" 
-                className="h-8 w-auto"
-              />
+              <img src={import.meta.env.VITE_LOGO_URL} alt="Noderunners" className="h-8 w-auto" />
             ) : (
               <>
-                <Flame className="h-8 w-8 text-orange-500" />
-                <span className="text-xl font-bold">Noderunners</span>
+                <Flame className="h-7 w-7 text-primary" />
+                <span className="font-display text-headline-md font-bold text-primary tracking-tight">
+                  NODERUNNERS
+                </span>
               </>
             )}
           </Link>
-          
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-4">
+
+          <div className="flex items-center gap-2 sm:gap-4">
+            <ThemeToggle />
+            <LanguageSwitcher />
             {user ? (
               <>
                 <Link
                   to={getPath('/dashboard')}
-                  className="px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+                  className="font-mono text-label-mono text-on-surface-variant hover:text-primary transition-colors"
                 >
-                  Dashboard
+                  {t('nav.dashboard')}
                 </Link>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-                >
-                  Logout
-                </button>
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  {t('nav.logOut')}
+                </Button>
               </>
             ) : (
-              <Link
-                to={getPath('/login')}
-                className="px-4 py-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
-              >
-                Connect Nostr
-              </Link>
+              <Button size="sm" onClick={() => navigate(getPath('/login'))}>
+                {t('nav.logIn')}
+              </Button>
             )}
           </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            onClick={handleMenuClick}
-            className="md:hidden p-2 rounded-lg hover:bg-gray-800 transition-colors"
-          >
-            {isMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
         </div>
-
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden border-t border-gray-800 py-4">
-            <div className="flex flex-col space-y-2">
-              {user ? (
-                <>
-                  <Link
-                    to={getPath('/dashboard')}
-                    onClick={handleNavigation}
-                    className="px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-                  >
-                    Dashboard
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors text-left"
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <Link
-                  to={getPath('/login')}
-                  onClick={handleNavigation}
-                  className="px-4 py-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors text-center"
-                >
-                  Connect Nostr
-                </Link>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </nav>
   );

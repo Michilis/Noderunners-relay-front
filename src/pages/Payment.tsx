@@ -7,6 +7,8 @@ import { apiService } from '../services/api';
 import type { LightningInvoice } from '../types';
 import { Notification } from '../components/Notification';
 import { useNotification } from '../hooks/useNotification';
+import { useTranslation } from '../i18n';
+import { Button, Card, Spinner } from '../components/ui';
 
 const POLL_MS = 2000;
 
@@ -29,6 +31,7 @@ export function Payment() {
     planParam === 'yearly' || planParam === 'lifetime' ? planParam : null;
 
   const { user } = useStore();
+  const { t } = useTranslation();
   const isDemoMode = import.meta.env.VITE_ENABLE_DEMO === 'true';
   const [invoice, setInvoice] = useState<LightningInvoice | null>(null);
   const [amountSats, setAmountSats] = useState<number | null>(null);
@@ -110,7 +113,7 @@ export function Payment() {
               handlePaymentSuccess();
             }
             if (st.status === 'expired') {
-              setError('This invoice has expired. Reload to generate a new one.');
+              setError('expired');
               if (intervalId) {
                 clearInterval(intervalId);
                 intervalId = undefined;
@@ -131,7 +134,7 @@ export function Payment() {
         if (cancelled) return;
 
         if (!pricing.lightning_enabled) {
-          setError('Lightning payments are temporarily unavailable. Please try again later.');
+          setError('lightning');
           return;
         }
 
@@ -156,7 +159,7 @@ export function Payment() {
       } catch (err) {
         if (cancelled) return;
         console.error('Failed to generate invoice:', err);
-        const msg = err instanceof Error ? err.message : 'Failed to generate invoice.';
+        const msg = err instanceof Error && err.message ? err.message : 'generic';
         setError(msg);
       }
     };
@@ -172,10 +175,10 @@ export function Payment() {
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      showNotification('Lightning invoice copied to clipboard');
+      showNotification(t('payment.notifyCopied'));
     } catch (err) {
       console.error('Failed to copy:', err);
-      showNotification('Failed to copy invoice', 'error');
+      showNotification(t('payment.notifyCopyFailed'), 'error');
     }
   };
 
@@ -209,54 +212,54 @@ export function Payment() {
 
   const planSubtitle =
     resolvedPlan === 'yearly'
-      ? 'One year of relay access'
+      ? t('payment.oneYearAccess')
       : resolvedPlan === 'lifetime'
-        ? 'Lifetime relay access'
+        ? t('payment.lifetimeAccess')
         : '';
 
+  const KNOWN_ERRORS: Record<string, string> = {
+    expired: 'payment.errorExpired',
+    lightning: 'payment.errorLightningUnavailable',
+    generic: 'payment.errorGeneric',
+  };
+  const displayError = error ? (KNOWN_ERRORS[error] ? t(KNOWN_ERRORS[error]) : error) : null;
+
   if (showFetchSpinner) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
-      </div>
-    );
+    return <Spinner page />;
   }
 
   if (!isDemoMode && !resolvedPlan) {
     return (
       <>
-        <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-8">
-          <h1 className="text-2xl font-bold mb-2 text-center">Choose a plan</h1>
-          <p className="text-gray-400 text-center mb-8">
-            Pick yearly access or pay once for lifetime access.
+        <Card elevated className="max-w-md mx-auto p-8">
+          <h1 className="font-display text-headline-lg font-semibold mb-2 text-center">{t('payment.choosePlan')}</h1>
+          <p className="text-secondary font-body text-body-md text-center mb-8">
+            {t('payment.choosePlanSub')}
           </p>
           <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() => navigateWithPlan('yearly')}
-              className="w-full px-6 py-4 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold text-lg"
-            >
-              Pay for one year
+            <Button size="lg" onClick={() => navigateWithPlan('yearly')} className="w-full flex-col">
+              <span>{t('payment.payOneYear')}</span>
               {pricingYearly != null ? (
-                <span className="block text-sm font-normal text-orange-100 mt-1">
-                  {pricingYearly.toLocaleString()} sats / year
+                <span className="font-normal text-label-sm-mono opacity-90">
+                  {t('payment.perYear', { price: pricingYearly.toLocaleString() })}
                 </span>
               ) : null}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
               onClick={() => navigateWithPlan('lifetime')}
-              className="w-full px-6 py-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-semibold text-lg border border-gray-600"
+              className="w-full flex-col"
             >
-              Pay for lifetime
+              <span>{t('payment.payLifetime')}</span>
               {pricingLifetime != null ? (
-                <span className="block text-sm font-normal text-gray-300 mt-1">
-                  {pricingLifetime.toLocaleString()} sats one-time
+                <span className="font-normal text-label-sm-mono text-secondary">
+                  {t('payment.oneTime', { price: pricingLifetime.toLocaleString() })}
                 </span>
               ) : null}
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
         <Notification
           isVisible={isVisible}
           message={message}
@@ -269,32 +272,26 @@ export function Payment() {
 
   if (error) {
     return (
-      <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-8">
-        <div className="text-center text-red-500 mb-4">
-          <p>{error}</p>
+      <Card elevated className="max-w-md mx-auto p-8">
+        <div className="text-center text-status-error font-body text-body-md mb-4">
+          <p>{displayError}</p>
         </div>
-        <button
-          onClick={() => window.location.reload()}
-          className="w-full px-6 py-3 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold"
-        >
-          Try Again
-        </button>
-      </div>
+        <Button onClick={() => window.location.reload()} className="w-full">
+          {t('payment.tryAgain')}
+        </Button>
+      </Card>
     );
   }
 
   if (isDemoMode) {
     return (
       <>
-        <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-8">
-          <h1 className="text-2xl font-bold mb-6 text-center">Payment (demo)</h1>
-          <button
-            onClick={handleDemoPayment}
-            className="w-full px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-semibold text-gray-300"
-          >
-            Demo: Simulate Payment
-          </button>
-        </div>
+        <Card elevated className="max-w-md mx-auto p-8">
+          <h1 className="font-display text-headline-lg font-semibold mb-6 text-center">{t('payment.demoTitle')}</h1>
+          <Button variant="secondary" onClick={handleDemoPayment} className="w-full">
+            {t('payment.demoSimulate')}
+          </Button>
+        </Card>
         <Notification
           isVisible={isVisible}
           message={message}
@@ -308,7 +305,7 @@ export function Payment() {
   if (!invoice || !resolvedPlan) {
     return (
       <div className="text-center">
-        <p className="text-red-500">Failed to generate invoice. Please try again.</p>
+        <p className="text-status-error font-body text-body-md">{t('payment.failedInvoice')}</p>
       </div>
     );
   }
@@ -320,67 +317,67 @@ export function Payment() {
     expiresAtIso && Date.parse(expiresAtIso) > nowTick
       ? formatInvoiceCountdown(expiresAtIso, nowTick)
       : expiresAtIso
-        ? 'Expired'
+        ? t('payment.expired')
         : null;
 
   return (
     <>
-      <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-8 relative">
+      <Card elevated className="max-w-md mx-auto p-8 relative">
         {showSuccess && (
-          <div className="absolute inset-0 bg-gray-900/95 flex items-center justify-center rounded-lg animate-fade-in z-10">
+          <div className="absolute inset-0 bg-background/95 flex items-center justify-center rounded animate-fade-in z-10">
             <div className="text-center animate-success-appear">
-              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-              <p className="text-xl font-semibold text-white">Payment Received!</p>
+              <CheckCircle className="h-16 w-16 text-status-success mx-auto mb-4" />
+              <p className="font-display text-headline-md font-semibold text-on-surface">
+                {t('payment.paymentReceived')}
+              </p>
             </div>
           </div>
         )}
 
-        <h1 className="text-2xl font-bold mb-6 text-center">Payment Required</h1>
+        <h1 className="font-display text-headline-lg font-semibold mb-6 text-center">{t('payment.paymentRequired')}</h1>
 
         <div className="text-center mb-6">
-          <p className="text-3xl font-bold text-orange-500">{satsLabel}</p>
-          <p className="text-gray-400">{planSubtitle}</p>
+          <p className="font-display text-display font-bold text-primary">{satsLabel}</p>
+          <p className="text-secondary font-body text-body-md">{planSubtitle}</p>
           {countdown != null ? (
-            <p className="text-sm text-amber-400/90 mt-3 font-mono">
-              Invoice expires in {countdown}
+            <p className="font-mono text-label-sm-mono text-status-warning mt-3">
+              {t('payment.invoiceExpiresIn', { countdown })}
             </p>
           ) : null}
         </div>
 
-        <div className="bg-white p-4 rounded-lg mb-6">
-          <QRCodeSVG
-            value={invoice.paymentRequest}
-            size={256}
-            className="w-full h-auto"
-            level="L"
-          />
+        <div className="bg-white p-4 rounded mb-6">
+          <QRCodeSVG value={invoice.paymentRequest} size={256} className="w-full h-auto" level="L" />
         </div>
 
-        <div className="bg-gray-900 rounded-lg mb-6">
+        <div className="terminal-panel rounded mb-6">
           <div className="flex items-center">
-            <div className="flex-1 overflow-x-auto whitespace-nowrap p-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-              <code className="font-mono text-sm text-white select-all" onClick={() => copyToClipboard(invoice.paymentRequest)}>
+            <div className="flex-1 overflow-x-auto whitespace-nowrap p-4">
+              <code
+                className="font-mono text-label-sm-mono text-terminal-fg select-all"
+                onClick={() => copyToClipboard(invoice.paymentRequest)}
+              >
                 {invoice.paymentRequest}
               </code>
             </div>
             <button
               onClick={() => copyToClipboard(invoice.paymentRequest)}
-              className="p-4 hover:bg-gray-800 transition-colors border-l border-gray-800 flex items-center gap-2"
+              className="p-4 hover:bg-white/5 transition-colors border-l border-terminal-border flex items-center gap-2 text-terminal-fg"
               title="Copy invoice"
             >
               <Copy className="h-4 w-4" />
-              <span className="text-sm">Copy</span>
+              <span className="font-mono text-label-sm-mono">{t('payment.copy')}</span>
             </button>
           </div>
         </div>
 
-        <button
+        <Button
           onClick={() => window.open(`lightning:${invoice.paymentRequest}`)}
-          className="w-full px-6 py-3 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors font-semibold mb-4"
+          className="w-full"
         >
-          Open in Wallet
-        </button>
-      </div>
+          {t('payment.openWallet')}
+        </Button>
+      </Card>
       <Notification
         isVisible={isVisible}
         message={message}
